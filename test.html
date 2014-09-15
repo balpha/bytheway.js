@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <script src="http://ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js"></script>
+        <script src="messenger.js"></script>
+        <script>
+            $(function () {
+                var msg = Messenger("messengertest");
+                $("#send").click(function () {
+                    var n = Math.random() * 10000 | 0;
+                    $("#sent").text("sent " + n)
+                    msg.broadcast({number: n});
+                })
+                msg.onReceive(function (d) {
+                    $("#received").text("received " + d.number);
+                });
+            })
+        </script>
+    </head>
+    <body>
+        <div id="received"></div>
+        <button id="send">send</button>
+        <div id="sent"></div>
+    </body>
+</html>
