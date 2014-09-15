@@ -5,37 +5,37 @@
         <script src="messenger.js"></script>
         <script>
             $(function () {
-                var msg = Messenger("messengertest");
+                var msgr = Messenger("messengertest");
                 $("#send").click(function () {
                     var n = Math.random() * 10000 | 0;
                     $("#sent").text("sent " + n)
-                    msg.broadcast({number: n});
+                    msgr.broadcast({number: n});
                 })
-                msg.onReceive(function (d) {
-                    $("#received").text("received " + d.number);
+                msgr.onReceive(function (msg) {
+                    $("#received").text("received " + msg.number);
                 });
                 
-                var msg2 = Messenger("requesttest", true);
-                msg2.onReceive(function (d, m, respond) {
-                    if (d === "knock knock")
+                var msgr2 = Messenger("requesttest", true);
+                msgr2.onReceive(function (msg, env, respond) {
+                    if (msg === "knock knock")
                         respond("who's there?");
-                    else if (d === "please alert")
+                    else if (msg === "please alert")
                         alert("I was asked to alert");
                     else
-                        alert("expected knock knock, got " + d + "!");
+                        alert("expected knock knock, got " + msg + "!");
                 });
                 $("#request").click(function () {
-                    msg2.request("knock knock", function (responses, messages) {
-                        for (var i = 0; i < responses.length; i++) {
-                            if (responses[i] !== "who's there?")
-                                alert("response " + i + ": got " + responses[i]);
+                    msgr2.request("knock knock", function (messages, envelopes) {
+                        for (var i = 0; i < messages.length; i++) {
+                            if (messages[i] !== "who's there?")
+                                alert("message " + i + ": got " + messages[i]);
                         }
                         var choice = "none";
-                        if (responses.length > 0) {
-                            choice = Math.random() * responses.length | 0;
-                            msg2.unicast("please alert", messages[choice].sender);
+                        if (messages.length > 0) {
+                            choice = Math.random() * messages.length | 0;
+                            msgr2.unicast("please alert", envelopes[choice].sender);
                         }
-                        $("#responses").text("got " + responses.length + " replies, chose " + choice);
+                        $("#responses").text("got " + messages.length + " replies, chose " + choice);
                     });
                 });
             })
