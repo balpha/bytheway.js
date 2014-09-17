@@ -75,7 +75,7 @@ function Messenger(localStorageKey, receiveOwn) {
                 messages.push(responses[i].message);
             }
             callback(messages, responses);
-        }, timeoutMs || 50);
+        }, timeoutMs || 100);
         send(envelope);
     }
     
@@ -117,6 +117,9 @@ function Messenger(localStorageKey, receiveOwn) {
     function onStorage(evt) {
         if (evt.key !== localStorageKey)
             return;
+        if (!evt.newValue)
+            return;
+        
         var envelope = JSON.parse(evt.newValue);
 
         if (envelope.sender === myId)
@@ -129,7 +132,8 @@ function Messenger(localStorageKey, receiveOwn) {
         broadcast: broadcast,
         unicast: unicast,
         onReceive: onReceive,
-        request: request
+        request: request,
+        id: myId
     };
     
 }
