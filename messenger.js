@@ -1,5 +1,8 @@
 function Messenger(localStorageKey, receiveOwn) {
-    var myId = Date.now() + "-" + Math.random();
+    
+    var currentTime = Date.now || function () { return new Date().getTime(); }
+    
+    var myId = currentTime() + "-" + Math.random();
     var counter = 0;
     var listeners = [];
     var pendingRequests = {};
@@ -7,7 +10,7 @@ function Messenger(localStorageKey, receiveOwn) {
     function makeEnvelope(message) {
         var result = {
             sender: myId,
-            time: Date.now(),
+            time: currentTime(),
             id: counter,
             message: message
         };        
@@ -15,13 +18,37 @@ function Messenger(localStorageKey, receiveOwn) {
         return result;
     }
     
+    var notifySelfAsync;
+    if (window.postMessage && window.addEventListener) {
+        var messagePrefix = "messenger-self-" + myId + "-";
+        var messagePrefixRe = new RegExp("^" + messagePrefix + "(.*)$"); // the prefix contains no regex-active characters, so no need for escaping
+        window.addEventListener("message", function (evt) {
+            if (evt.source !== window)
+                return;
+            evt.data.replace(messagePrefixRe, function (wholeMatch, serializedEnvelope) {
+                notifyListeners(JSON.parse(serializedEnvelope));
+            });
+        }, false)
+        notifySelfAsync = function (serialized) {
+            window.postMessage(messagePrefix + serialized, "*");
+        }
+    } else {
+        notifySelfAsync = function (serialized) {
+            setTimeout(function () {
+                notifyListeners(JSON.parse(serialized));
+            }, 0);
+        }
+    }
+    
     function send(envelope) {
         var serialized = JSON.stringify(envelope);
         try {
             localStorage.setItem(localStorageKey, serialized);
         } catch (ex) {}
-        if (receiveOwn)
-            setTimeout(function () { notifyListeners(envelope); }, 0);
+        
+        if (receiveOwn) {
+            notifySelfAsync(serialized);
+        }
     }
         
     function broadcast(message) {
@@ -36,6 +63,8 @@ function Messenger(localStorageKey, receiveOwn) {
     
     function request(message, callback, timeoutMs, recipient) {
         var envelope = makeEnvelope(message);
+        if (recipient)
+            envelope.recipient = recipient;
         envelope.rsvp = true;
         pendingRequests[envelope.id] = [];
         setTimeout(function () {
@@ -60,7 +89,7 @@ function Messenger(localStorageKey, receiveOwn) {
     }
     
     function onReceive(callback) {
-        if (!listeners.length)
+        if (!listeners.length && window.addEventListener)
             window.addEventListener("storage", onStorage);
         listeners.push(callback);
     }
@@ -92,7 +121,7 @@ function Messenger(localStorageKey, receiveOwn) {
 
         if (envelope.sender === myId)
             return;
-        
+
         notifyListeners(envelope);
     }
     
