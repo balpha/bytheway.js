@@ -3,50 +3,217 @@
     <head>
         <script src="http://ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js"></script>
         <script src="messenger.js"></script>
+        
         <script>
-            $(function () {
-                var msgr = Messenger("messengertest");
-                $("#send").click(function () {
-                    var n = Math.random() * 10000 | 0;
-                    $("#sent").text("sent " + n)
-                    msgr.broadcast({number: n});
-                })
-                msgr.onReceive(function (msg) {
-                    $("#received").text("received " + msg.number);
-                });
-                
-                var msgr2 = Messenger("requesttest", true);
-                msgr2.onReceive(function (msg, env, respond) {
-                    if (msg === "knock knock")
-                        respond("who's there?");
-                    else if (msg === "please alert")
-                        alert("I was asked to alert");
-                    else
-                        alert("expected knock knock, got " + msg + "!");
-                });
-                $("#request").click(function () {
-                    msgr2.request("knock knock", function (messages, envelopes) {
-                        for (var i = 0; i < messages.length; i++) {
-                            if (messages[i] !== "who's there?")
-                                alert("message " + i + ": got " + messages[i]);
+            var PREFIX, PAGENUMBER, PAGES = {}, PINGPONGIDS = [];
+            location.search.replace(/^\?([12]),(TEST-\d+-)$/, function (whole, page, pref) {
+                PREFIX = pref;
+                PAGENUMBER = parseInt(page);
+            });
+            
+            if (!PREFIX) {
+                PREFIX = "TEST-" + (Math.random() * 1e9 | 0) + "-";
+                PAGENUMBER = 0;
+            }
+            
+            var PASSED = 0; FAILED = 0;
+            var TESTS = [];
+            function TEST(description, func) {
+                TESTS.push({d: description, f: func});
+            };
+            function nextTest() {
+                var t = TESTS.shift();
+                if (t) {
+                    var p = $("<p/>").html(t.d).appendTo("#content");
+                    var w = waiting().appendTo(p);
+                    var def = $.Deferred().done(function () {
+                        PASSED++;
+                        p.append("<span style='color:#008000'> &#x2714;</span>");
+                        w.remove();
+                    }).fail(function () {
+                        FAILED++;
+                        p.append("<span style='color:#a00000'> &#x2717;</span>");
+                        w.remove();
+                    }).always(nextTest);
+                    t.f(def, p);
+                }
+            }
+            
+            var PINGPONG = Messenger(PREFIX + "pingpong");
+            var PINGPONGWITHSELF = Messenger(PREFIX + "pingpong", true);
+            var PAGECALLED = {};
+            PINGPONGWITHSELF.onReceive(function (msg, env, resp) {
+                if (msg === "ping")
+                    resp("pong");
+                else if (msg === "page number please") {
+                    PINGPONGWITHSELF.unicast(PAGENUMBER, env.sender);
+                } else if (typeof msg === "number") {
+                    if (PAGECALLED)
+                        PAGECALLED(msg);
+                }
+            });            
+            
+            function startTest() {
+                $("#content").empty();
+                // the pages reported themselves as having opened, so this works fine
+                TEST("basic communication", function (def) { def.resolve(); });
+
+                TEST("ping pong, excluding self", function (def) {
+                    PINGPONG.request("ping", function (msgs, envs) {
+                        for (var i = 0; i< envs.length; i++) {
+                            PINGPONGIDS.push(envs[i].sender);
                         }
-                        var choice = "none";
-                        if (messages.length > 0) {
-                            choice = Math.random() * messages.length | 0;
-                            msgr2.unicast("please alert", envelopes[choice].sender);
-                        }
-                        $("#responses").text("got " + messages.length + " replies, chose " + choice);
+                        if (msgs.length === 2)
+                            def.resolve();
+                        else
+                            def.reject();
                     });
                 });
-            })
+                
+                TEST("ping pong, including self", function (def) {
+                    PINGPONGWITHSELF.request("ping", function (msgs) {
+                        if (msgs.length === 3)
+                            def.resolve();
+                        else
+                            def.reject();
+                    });
+                });
+
+                TEST("ping pong, only with one page", function (def) {
+                    PINGPONGWITHSELF.request("ping", function (msgs) {
+                        if (msgs.length === 1)
+                            def.resolve();
+                        else
+                            def.reject();
+                    }, null, PINGPONGIDS[0]);
+                });
+                
+                TEST("broadcast v. unicast part 1", function (def) {
+                    var calls = [0, 0, 0]
+                    PAGECALLED = function (p) { calls[p]++; }
+                    PINGPONGWITHSELF.unicast("page number please", PINGPONGIDS[0]);
+                    setTimeout(function () {
+                        if (calls[0] === 0 && calls[1] + calls[2] === 1)
+                            def.resolve();
+                        else
+                            def.reject();
+                    }, 200);
+                });
+
+                TEST("broadcast v. unicast part 2", function (def) {
+                    var calls = [0, 0, 0]
+                    PAGECALLED = function (p) { calls[p]++; }
+                    PINGPONGWITHSELF.broadcast("page number please");
+                    setTimeout(function () {
+                        if (calls[0] === 1 && calls[1] === 1 && calls[2] === 1)
+                            def.resolve();
+                        else
+                            def.reject();
+                    }, 200);
+                });
+                
+               
+                TEST("closing the subpages", function (def) {
+                    var closed = 0;
+                    
+                    $("#message").text("Please close the two test pages now (you have 10 seconds)");
+                    
+                    var t = setTimeout(function () {
+                        def.reject();
+                        $("#message").empty();
+                    }, 10000);
+                    
+                    Messenger(PREFIX + "pageclosing").onReceive(function (msg) {
+                        if (msg === "I'm out") {
+                            closed++;
+                            if (closed === 2) {
+                                def.resolve();
+                                clearTimeout(t);
+                                $("#message").empty();
+                            }
+                        }
+                    });
+                });
+                
+                TEST("<b>all tests done</b>", function (def, p) {
+                    p.append("<span>, " + PASSED + " passed, " + FAILED + " failed" + "</span>");
+                    if (FAILED === 0)
+                        def.resolve();
+                    else
+                        def.reject();
+                });
+                
+                nextTest();
+            }
+            
+            function prepareSecondaryPage() {
+                var closingMsgr = Messenger(PREFIX + "pageclosing");
+                closingMsgr.onReceive(function (msg) {
+                    if (msg === "that's all") {
+                        window.close();
+                    }
+                });
+                $(window).on("unload", function () {
+                    closingMsgr.broadcast("I'm out");
+                });
+            }
+            
+            PAGES[0] = function() {
+                var links = {};
+                Messenger(PREFIX + "pageready").onReceive(function(msg, env) {
+                    var link = links[msg];
+                    if (link) {
+                        link.next().remove();
+                        link.after("<span style='color:#008000'> &#x2714;</span>");
+                        delete links[msg];
+                        if (!links[1] && !links[2]) {
+                            startTest();
+                        }
+                    } else {
+                        $("#content").text("Please open each test page only once. Reload this page to start over.");
+                    }
+                });
+                $("<p/>").text("Please open these two pages in new tabs:").appendTo("#content");
+                for (var i = 1; i < 3; i++) {
+                    links[i] = $("<a target='_blank' rel='noreferrer' href='?" + i + "," + PREFIX + "'>test page " + i + "</a>");
+                    $("#content").append(links[i]).append(waiting()).append("<br/>");
+                }
+                setInterval(function () {
+                    $(".waiting").each(function () {
+                        var j = $(this);
+                        var t = $(this).text();
+                        j.text(" " + t.charAt(5) + t.substr(1, 4));
+                    });
+                }, 300);
+                
+            };
+            
+            PAGES[1] = function() {
+                prepareSecondaryPage();
+                Messenger(PREFIX + "pageready").broadcast(1);
+            };
+            PAGES[2] = function() {
+                prepareSecondaryPage();
+                Messenger(PREFIX + "pageready").broadcast(2);
+            };
+            
+            $(function () {
+                $("h1").text("Test page number " + PAGENUMBER);
+                PAGES[PAGENUMBER]();
+            });
+            
+            function waiting() {
+                return $("<span class='waiting' style='white-space: pre;'> ...  </span>");
+            }
+            
+            
+            
+            
         </script>
     </head>
     <body>
-        <div id="received"></div>
-        <button id="send">send</button>
-        <div id="sent"></div>
-        
-        <button id="request">request</button>
-        <pre id="responses"></div>
+        <h1></h1>
+        <div id="content"></div>
+        <div id="message" style="color: #800000; font-size: 24px; font-weight: bold; margin-left: 30px;"></div>
     </body>
 </html>
