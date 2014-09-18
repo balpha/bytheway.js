@@ -45,6 +45,8 @@
         }
         
         var notifySelfAsync;
+        // In non-foreground tabs, some browsers will delay setTimeouts by quite a bit,
+        // but message events are passed immediately.
         if (window.postMessage && window.addEventListener) {
             var messagePrefix = "messenger-self-" + myId + "-";
             var messagePrefixRe = new RegExp("^" + messagePrefix + "(.*)$"); // the prefix contains no regex-active characters, so no need for escaping
@@ -152,7 +154,11 @@
             if (!evt.newValue)
                 return;
             
-            var envelope = JSON.parse(evt.newValue);
+            try {
+                var envelope = JSON.parse(evt.newValue);
+            } catch (ex) {
+                return;
+            }
     
             if (envelope.sender === myId)
                 return;

@@ -111,7 +111,28 @@
                             def.reject();
                     }, 200);
                 });
+
+                TEST("broadcast v. unicast part 3", function (def) {
+                    var calls = [0, 0, 0]
+                    PAGECALLED = function (p) { calls[p]++; }
+                    PINGPONGWITHSELF.unicast("page number please", PINGPONGWITHSELF.id);
+                    setTimeout(function () {
+                        if (calls[0] === 1 && calls[1] === 0 && calls[2] === 0)
+                            def.resolve();
+                        else
+                            def.reject();
+                    }, 200);
+                });
                 
+                TEST("same key means same messenger", function (def) {
+                    var m1 = Messenger(PREFIX + "m1");
+                    var m2 = Messenger(PREFIX + "m1");
+                    var m3 = Messenger(PREFIX + "m1", true);
+                    if (m1.id === m2.id && m2.id == m3.id)
+                        def.resolve();
+                    else
+                        def.reject();
+                });
                
                 TEST("closing the subpages", function (def) {
                     var closed = 0;
