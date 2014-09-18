@@ -91,15 +91,15 @@ sends the message only to the browser tab that has the given ID. You can get thi
 
 The browser tab's own ID is available as `messenger.id`. Note that these ID's are per-channel. If you send data over two different localStorage keys, then the corresponding messengers will have different IDs, even in the same browser tab.
 
-    messenger.request(message, callback, [timeoutMs, [recipientId]])
+    messenger.request(message, callback, [recipientId, [timeoutMs]])
 
 sends a message that expects a response. All browser tabs that receive this message will have the `responder` argument passed to the `onReceive` callback. This argument is itself a function that can be called with the response message.
 
 The `callback` argument to `request` will be called with two arguments; an array of messages and an array of envelopes (again, usually you'll just need the messages). The two arrays are guaranteed to be in the same order, so assuming there were at least three responses, `messages[2] === envelopes[2].message` is always true.
 
-The optional parameter `timeoutMs` defaults to 100ms and specifies how long we should wait for responses to come in before calling the callback.
-
 The optional parameter `recipientId` specifies the ID of the browser to send the request to (see the description of `unicast`); if this is not given, the request will be sent to all listening tabs.
+
+The optional parameter `timeoutMs` defaults to 100ms and specifies how long we should wait for responses to come in before calling the callback.
 
 ### Request example
 

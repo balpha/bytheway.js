@@ -14,8 +14,8 @@
             onReceive: function (callback) {
                 return result.onReceive(callback, receiveOwn);
             },
-            request: function (message, callback, timeoutMs, recipient) {
-                return result.request(message, callback, timeoutMs, recipient, receiveOwn);
+            request: function (message, callback, recipient, timeoutMs) {
+                return result.request(message, callback, recipient, timeoutMs, receiveOwn);
             },
             id: result.id
         };
@@ -89,7 +89,7 @@
             send(envelope);
         }
         
-        function request(message, callback, timeoutMs, recipient, receiveOwn) {
+        function request(message, callback, recipient, timeoutMs, receiveOwn) {
             var envelope = makeEnvelope(message);
             if (recipient)
                 envelope.recipient = recipient;
