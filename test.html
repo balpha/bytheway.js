@@ -2,7 +2,7 @@
 <html>
     <head>
         <script src="http://ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js"></script>
-        <script src="messenger.js"></script>
+        <script src="bytheway.js"></script>
         
         <script>
             var PREFIX, PAGENUMBER, PAGES = {}, PINGPONGIDS = [];
@@ -39,8 +39,8 @@
                 }
             }
             
-            var PINGPONG = Messenger(PREFIX + "pingpong");
-            var PINGPONGWITHSELF = Messenger(PREFIX + "pingpong", true);
+            var PINGPONG = ByTheWay(PREFIX + "pingpong");
+            var PINGPONGWITHSELF = ByTheWay(PREFIX + "pingpong", true);
             var PAGECALLED = {};
             PINGPONGWITHSELF.onReceive(function (msg, env, resp) {
                 if (msg === "ping")
@@ -125,9 +125,9 @@
                 });
                 
                 TEST("same key means same messenger", function (def) {
-                    var m1 = Messenger(PREFIX + "m1");
-                    var m2 = Messenger(PREFIX + "m1");
-                    var m3 = Messenger(PREFIX + "m1", true);
+                    var m1 = ByTheWay(PREFIX + "m1");
+                    var m2 = ByTheWay(PREFIX + "m1");
+                    var m3 = ByTheWay(PREFIX + "m1", true);
                     if (m1.id === m2.id && m2.id == m3.id)
                         def.resolve();
                     else
@@ -144,7 +144,7 @@
                         $("#message").empty();
                     }, 10000);
                     
-                    Messenger(PREFIX + "pageclosing").onReceive(function (msg) {
+                    ByTheWay(PREFIX + "pageclosing").onReceive(function (msg) {
                         if (msg === "I'm out") {
                             closed++;
                             if (closed === 2) {
@@ -168,7 +168,7 @@
             }
             
             function prepareSecondaryPage() {
-                var closingMsgr = Messenger(PREFIX + "pageclosing");
+                var closingMsgr = ByTheWay(PREFIX + "pageclosing");
                 closingMsgr.onReceive(function (msg) {
                     if (msg === "that's all") {
                         window.close();
@@ -181,7 +181,7 @@
             
             PAGES[0] = function() {
                 var links = {};
-                Messenger(PREFIX + "pageready").onReceive(function(msg, env) {
+                ByTheWay(PREFIX + "pageready").onReceive(function(msg, env) {
                     var link = links[msg];
                     if (link) {
                         link.next().remove();
@@ -211,11 +211,11 @@
             
             PAGES[1] = function() {
                 prepareSecondaryPage();
-                Messenger(PREFIX + "pageready").broadcast(1);
+                ByTheWay(PREFIX + "pageready").broadcast(1);
             };
             PAGES[2] = function() {
                 prepareSecondaryPage();
-                Messenger(PREFIX + "pageready").broadcast(2);
+                ByTheWay(PREFIX + "pageready").broadcast(2);
             };
             
             $(function () {

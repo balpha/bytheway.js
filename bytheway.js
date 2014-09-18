@@ -2,7 +2,7 @@
     
     var messengers = {};
     
-    window.Messenger = function (localStorageKey, receiveOwn) {
+    window.ByTheWay = function (localStorageKey, receiveOwn) {
         var k = "m_" + localStorageKey;
         var result = messengers[k];
         if (!result) {
