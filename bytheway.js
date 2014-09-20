@@ -32,6 +32,26 @@
     function postMessageEscape(s) {
         return s.replace(/%/g, "%%").replace(/!/g, "%-");
     }
+    
+    var postMessagePrefix = "bytheway-self-" + myId + "-";
+    var localNotifiers;
+    function ensurePostMessageListener() {
+        if (localNotifiers)
+            return;
+        localNotifiers = {};
+        var messagePrefixRe = new RegExp("^" + postMessagePrefix + "([^!]*)!(.*)$"); // the prefix contains no regex-active characters, so no need for escaping
+        window.addEventListener("message", function (evt) {
+            if (evt.source !== window)
+                return;
+            evt.data.replace(messagePrefixRe, function (wholeMatch, escapedLocalStorageKey, serializedEnvelope) {
+                var notifier = localNotifiers[escapedLocalStorageKey];
+                if (notifier)
+                    notifier(JSON.parse(serializedEnvelope));
+            });
+        }, false)
+        
+    }
+    
     function makeMessenger(localStorageKey) {
         
         var counter = 0;
@@ -56,17 +76,14 @@
         // In non-foreground tabs, some browsers will delay setTimeouts by quite a bit,
         // but message events are passed immediately.
         if (window.postMessage && window.addEventListener) {
-            var messagePrefix = "bytheway-self-" + myId + "-" + postMessageEscape(localStorageKey) + "!";
-            var messagePrefixRe = new RegExp("^" + regexEscape(messagePrefix) + "(.*)$"); // the prefix contains no regex-active characters, so no need for escaping
-            window.addEventListener("message", function (evt) {
-                if (evt.source !== window)
-                    return;
-                evt.data.replace(messagePrefixRe, function (wholeMatch, serializedEnvelope) {
-                    notifyListeners(JSON.parse(serializedEnvelope), ownListeners);
-                });
-            }, false)
+            ensurePostMessageListener();
+            var escaped = postMessageEscape(localStorageKey);
+            var channelPrefix = postMessagePrefix + escaped + "!";
+            localNotifiers[escaped] = function (envelope) {
+                notifyListeners(envelope, ownListeners)
+            }
             notifySelfAsync = function (serialized) {
-                window.postMessage(messagePrefix + serialized, "*");
+                window.postMessage(channelPrefix + serialized, "*");
             }
         } else {
             notifySelfAsync = function (serialized) {
