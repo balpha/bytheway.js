@@ -44,13 +44,37 @@
             if (evt.source !== window)
                 return;
             evt.data.replace(messagePrefixRe, function (wholeMatch, escapedLocalStorageKey, serializedEnvelope) {
-                var notifier = localNotifiers[escapedLocalStorageKey];
+                var notifier = localNotifiers["m_" + escapedLocalStorageKey];
                 if (notifier)
                     notifier(JSON.parse(serializedEnvelope));
             });
         }, false)
-        
     }
+    
+    var storageNotifiers;
+    function ensureStorageListener() {
+        if (storageNotifiers || ! window.addEventListener)
+            return;
+        storageNotifiers = {};
+        window.addEventListener("storage", function onStorage(evt) {
+            var notifier = storageNotifiers["m_" + evt.key];
+            if (!notifier)
+                return;
+            if (!evt.newValue)
+                return;
+            
+            try {
+                var envelope = JSON.parse(evt.newValue);
+            } catch (ex) {
+                return;
+            }
+    
+            if (envelope.sender === myId)
+                return;
+    
+            notifier(envelope);
+        });
+    }    
     
     function makeMessenger(localStorageKey) {
         
@@ -79,7 +103,7 @@
             ensurePostMessageListener();
             var escaped = postMessageEscape(localStorageKey);
             var channelPrefix = postMessagePrefix + escaped + "!";
-            localNotifiers[escaped] = function (envelope) {
+            localNotifiers["m_" + escaped] = function (envelope) {
                 notifyListeners(envelope, ownListeners)
             }
             notifySelfAsync = function (serialized) {
@@ -91,6 +115,11 @@
                     notifyListeners(JSON.parse(serialized), ownListeners);
                 }, 0);
             }
+        }
+        
+        ensureStorageListener();
+        storageNotifiers["m_" + localStorageKey] = function (envelope) {
+            notifyListeners(envelope, externalListeners);
         }
         
         function send(envelope) {
@@ -146,8 +175,6 @@
         }
         
         function onReceive(callback, receiveOwn) {
-            if (!externalListeners.length && window.addEventListener)
-                window.addEventListener("storage", onStorage);
             externalListeners.push(callback);
             if (receiveOwn)
                 ownListeners.push(callback);
@@ -171,24 +198,6 @@
                 else
                     listenersArray[i](envelope.message, envelope);
             }
-        }
-        
-        function onStorage(evt) {
-            if (evt.key !== localStorageKey)
-                return;
-            if (!evt.newValue)
-                return;
-            
-            try {
-                var envelope = JSON.parse(evt.newValue);
-            } catch (ex) {
-                return;
-            }
-    
-            if (envelope.sender === myId)
-                return;
-    
-            notifyListeners(envelope, externalListeners);
         }
         
         return {
