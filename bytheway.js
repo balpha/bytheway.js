@@ -1,5 +1,8 @@
 (function (window) {
     
+    var currentTime = Date.now || function () { return new Date().getTime(); }
+    var myId = currentTime() + "-" + Math.random();
+    
     var messengers = {};
     
     window.ByTheWay = function (localStorageKey, receiveOwn) {
@@ -21,11 +24,16 @@
         };
     }
     
+    function regexEscape(s) {
+        return s.replace(/[$^.+*\\[\]()?|{}]/g, "\\$&");
+    }
+    // the postMessage prefix ends with an exclamation point, so we want to
+    // prevent that character from being part of the prefix itself.
+    function postMessageEscape(s) {
+        return s.replace(/%/g, "%%").replace(/!/g, "%-");
+    }
     function makeMessenger(localStorageKey) {
         
-        var currentTime = Date.now || function () { return new Date().getTime(); }
-        
-        var myId = currentTime() + "-" + Math.random();
         var counter = 0;
         
         var externalListeners = [];
@@ -48,8 +56,8 @@
         // In non-foreground tabs, some browsers will delay setTimeouts by quite a bit,
         // but message events are passed immediately.
         if (window.postMessage && window.addEventListener) {
-            var messagePrefix = "messenger-self-" + myId + "-";
-            var messagePrefixRe = new RegExp("^" + messagePrefix + "(.*)$"); // the prefix contains no regex-active characters, so no need for escaping
+            var messagePrefix = "bytheway-self-" + myId + "-" + postMessageEscape(localStorageKey) + "!";
+            var messagePrefixRe = new RegExp("^" + regexEscape(messagePrefix) + "(.*)$"); // the prefix contains no regex-active characters, so no need for escaping
             window.addEventListener("message", function (evt) {
                 if (evt.source !== window)
                     return;

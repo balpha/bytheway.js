@@ -89,7 +89,7 @@ sends the message to all browser tabs that are listening on the same channel (i.
 
 sends the message only to the browser tab that has the given ID. You can get this ID by looking at `envelope.sender` on the envelope of a message that you have previously received.
 
-The browser tab's own ID is available as `messenger.id`. Note that these ID's are per-channel. If you send data over two different localStorage keys, then the corresponding messengers will have different IDs, even in the same browser tab.
+The browser tab's own ID is available as `messenger.id`. Note that all messengers in the same page have the same ID, i.e. you can use the sender of a message you received on one channel to send a message to the same browser window on a different channel.
 
     messenger.request(message, callback, [recipientId, [timeoutMs]])
 

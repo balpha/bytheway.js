@@ -51,7 +51,15 @@
                     if (PAGECALLED)
                         PAGECALLED(msg);
                 }
-            });            
+            });
+            
+            var forwarder = function(message) {
+                ByTheWay(message.channel).unicast(message.message, message.tab);
+            }
+            var FORWARDCHANNEL = PREFIX + "forwarder";
+            var FORWARDMSGR = ByTheWay(FORWARDCHANNEL, true);
+            FORWARDMSGR.onReceive(forwarder);
+            
             
             function startTest() {
                 $("#content").empty();
@@ -124,14 +132,61 @@
                     }, 200);
                 });
                 
-                TEST("same key means same messenger", function (def) {
+                TEST("all messengers in the window have the same id", function (def) {
                     var m1 = ByTheWay(PREFIX + "m1");
-                    var m2 = ByTheWay(PREFIX + "m1");
+                    var m2 = ByTheWay(PREFIX + "m2");
                     var m3 = ByTheWay(PREFIX + "m1", true);
                     if (m1.id === m2.id && m2.id == m3.id)
                         def.resolve();
                     else
                         def.reject();
+                });
+                
+                TEST("same-window message only arrives on the correct channel", function (def) {
+                    var m1 = ByTheWay(PREFIX + "samewindow!", true);
+                    var m2 = ByTheWay(PREFIX + "same.indow", true);
+                    var m3 = ByTheWay(PREFIX + "samewindow", true);
+                    var c1 = 0, c2 = 0, c3 = 0;
+                    m1.onReceive(function () { c1++; });
+                    m2.onReceive(function () { c2++; });
+                    m3.onReceive(function () { c3++; });
+                    
+                    m1.broadcast("hello");
+                    setTimeout(function() {
+                        if (c1 === 1 && c2 === 0 && c3 === 0)
+                            def.resolve();
+                        else
+                            def.reject();
+                    }, 200)
+                });
+                
+                TEST("forwarding via different channels", function (def) {
+                    
+                    var k = PREFIX + "forwardingreceiver";
+
+                    var peer1 = PINGPONGIDS[0];
+                    var peer2 = PINGPONGIDS[1];
+                    var ourself = FORWARDMSGR.id;
+                    
+                    var m3 = "here I am"; // this message should come back to us from peer1
+                    var m2 = { channel: k, message: m3, tab: ourself }; // peer2 should send this to peer1
+                    var m1 = { channel: FORWARDCHANNEL, message: m2, tab: peer1 }; // we send this to peer2
+                    
+                    var n = 0;
+                    var good = true;
+                    ByTheWay(k).onReceive(function (msg, env) {
+                        n++;
+                        good = good && msg === m3 && env.sender === peer1;
+                    });
+                    FORWARDMSGR.unicast(m1, peer2);
+                    
+                    setTimeout(function () {
+                        if (n === 1 && good)
+                            def.resolve();
+                        else
+                            def.reject();
+                    }, 200)
+                    
                 });
                
                 TEST("closing the subpages", function (def) {
