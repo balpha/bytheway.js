@@ -1,3 +1,7 @@
+**This is an old project that was originally hosted on Bitbucket. When they retired support for Mercurial, I moved it to GitHub. I'm not actively working on it.**
+
+---
+
 ## ByTheWay
 
 ByTheWay is a small (<1KB minified and gzipped) JavaScript library that allows you to easily communicate among all browser tabs that a user has open on your website. For example, you could
